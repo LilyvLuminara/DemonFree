@@ -1,0 +1,984 @@
+-- ========== LILYVL ORIGINAL BACKEND (UNTOUCHED) ==========
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local player = game:GetService("Players").LocalPlayer
+local runService = game:GetService("RunService")
+local userInputService = game:GetService("UserInputService")
+local tweenService = game:GetService("TweenService")
+
+
+local function findRemote(name)
+    for _, v in pairs(replicatedStorage:GetDescendants()) do
+        if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
+            if string.find(string.lower(v.Name), string.lower(name)) then
+                return v
+            end
+        end
+    end
+    return nil
+end
+
+local clickRemote = findRemote("ReqClickTrain")
+local speedRemote = findRemote("ReqUpdateTrainSpeed")
+local equipRemote = findRemote("ReqApplyEquipTrainMethod")
+local unequipRemote = findRemote("ReqApplyUnequipTrainMethod")
+local trainModule = nil
+local function getTrainModule()
+    if trainModule then return trainModule end
+    local script = replicatedStorage:FindFirstChild("Script")
+    if script then
+        local train = script:FindFirstChild("TrainSystem")
+        if train then
+            local service = train:FindFirstChild("TrainSystemService")
+            if service then
+                local success, module = pcall(require, service)
+                if success then
+                    trainModule = module
+                    return module
+                end
+            end
+        end
+    end
+    return nil
+end
+trainModule = getTrainModule()
+if trainModule then print("✅ TrainSystemService loaded!") end
+local storageModule = nil
+pcall(function()
+    local storage = replicatedStorage:FindFirstChild("Storage")
+    if storage then
+        local trainStorage = storage:FindFirstChild("TrainSystemStorage")
+        if trainStorage then
+            storageModule = require(trainStorage)
+        end
+    end
+end)
+if storageModule then print("✅ TrainSystemStorage loaded!") end
+
+-- ========== FUNGSI DASAR (MUTLAK) ==========
+local function cachedClick()
+    if clickRemote then
+        pcall(function()
+            if clickRemote:IsA("RemoteFunction") then
+                clickRemote:InvokeServer()
+            else
+                clickRemote:FireServer()
+            end
+        end)
+    end
+end
+
+local function cachedUpdateSpeed(speed)
+    if speedRemote then
+        pcall(function()
+            if speedRemote:IsA("RemoteFunction") then
+                speedRemote:InvokeServer(speed or 512)
+            else
+                speedRemote:FireServer(speed or 512)
+            end
+        end)
+    end
+end
+
+local function cachedEquip(methodId)
+    if equipRemote then
+        pcall(function()
+            if equipRemote:IsA("RemoteFunction") then
+                equipRemote:InvokeServer(methodId)
+            else
+                equipRemote:FireServer(methodId)
+            end
+        end)
+    end
+end
+
+local function cachedUnequip()
+    if unequipRemote then
+        pcall(function()
+            if unequipRemote:IsA("RemoteFunction") then
+                unequipRemote:InvokeServer()
+            else
+                unequipRemote:FireServer()
+            end
+        end)
+    end
+    if trainModule and trainModule.requestUnequipTrainMethod then
+        pcall(trainModule.requestUnequipTrainMethod)
+    end
+end
+
+local function unequipTrain()
+    cachedUnequip()
+    pcall(function()
+        local char = player.Character
+        if char then
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                local animator = humanoid:FindFirstChildOfClass("Animator")
+                if animator then
+                    for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                        track:Stop()
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- ========== BYPASS FUNGSI (MUTLAK) ==========
+local bypassActive = false
+
+local function doBypass()
+    print("⚡ ACTIVATING BYPASS x6...")
+    
+    if storageModule then
+        if storageModule.getPlayerTrainValue then
+            storageModule.getPlayerTrainValue = function(plr, method)
+                return 512
+            end
+            print("✅ getPlayerTrainValue -> 512")
+        end
+        
+        if storageModule.getAllPlayerTrainValues then
+            storageModule.getAllPlayerTrainValues = function(plr)
+                local t = {}
+                for i = 1, 16 do
+                    t[i] = 512
+                end
+                return t
+            end
+            print("✅ getAllPlayerTrainValues -> 512")
+        end
+        
+        if storageModule.getAllPlayerTrainValuesSum then
+            storageModule.getAllPlayerTrainValuesSum = function(plr)
+                return 512
+            end
+            print("✅ getAllPlayerTrainValuesSum -> 512")
+        end
+    end
+    
+    if trainModule then
+        if trainModule.getClickTrainSpeed then
+            trainModule.getClickTrainSpeed = function()
+                return 512
+            end
+            print("✅ getClickTrainSpeed -> 512")
+        end
+        
+        if trainModule.onClickAccelerate then
+            local old = trainModule.onClickAccelerate
+            trainModule.onClickAccelerate = function()
+                if speedRemote then
+                    pcall(function()
+                        if speedRemote:IsA("RemoteFunction") then
+                            speedRemote:InvokeServer(512)
+                        else
+                            speedRemote:FireServer(512)
+                        end
+                    end)
+                end
+                return old()
+            end
+            print("✅ onClickAccelerate hooked -> 512")
+        end
+        
+        if trainModule.startDecayCheck then
+            trainModule.startDecayCheck = function()
+                return
+            end
+            print("✅ Decay disabled")
+        end
+        
+        for name, func in pairs(trainModule) do
+            if type(func) == "function" then
+                if string.find(string.lower(name), "get") and 
+                   (string.find(string.lower(name), "speed") or 
+                    string.find(string.lower(name), "train") or
+                    string.find(string.lower(name), "click")) then
+                    trainModule[name] = function(...)
+                        return 512
+                    end
+                    print("✅ Bypassed:", name)
+                end
+                if string.find(string.lower(name), "decay") then
+                    trainModule[name] = function() end
+                    print("✅ Disabled:", name)
+                end
+            end
+        end
+    end
+    if clickRemote then
+        local oldInvoke = clickRemote.InvokeServer
+        clickRemote.InvokeServer = function(self, ...)
+            return oldInvoke(self, 512)
+        end
+        print("✅ ReqClickTrain hooked -> 512")
+    end
+    if speedRemote then
+        local oldInvoke = speedRemote.InvokeServer
+        speedRemote.InvokeServer = function(self, speed)
+            return oldInvoke(self, 512)
+        end
+        print("✅ ReqUpdateTrainSpeed hooked -> 512")
+    end
+    pcall(function()
+        local remote = replicatedStorage:FindFirstChild("Remote")
+        if remote then
+            local ts = remote:FindFirstChild("TrainSystem")
+            if ts then
+                local click = ts:FindFirstChild("ReqClickTrain")
+                if click then
+                    local oldFire = click.FireServer
+                    click.FireServer = function(self, ...)
+                        return oldFire(self, 512)
+                    end
+                    print("✅ FireServer hooked -> 512")
+                end
+            end
+        end
+    end)
+    pcall(function()
+        local core = replicatedStorage:FindFirstChild("Core")
+        if core then
+            local config = core:FindFirstChild("Config")
+            if config then
+                local configManager = config:FindFirstChild("ConfigDataManager")
+                if configManager then
+                    local success, module = pcall(require, configManager)
+                    if success and module then
+                        if module.getConstant then
+                            local oldGet = module.getConstant
+                            module.getConstant = function(constant)
+                                if constant == "MAX_TRAIN_SPEED_RATE" then
+                                    return 512
+                                end
+                                if constant == "OP_MAX_TRAIN_SPEED_RATE" then
+                                    return 512
+                                end
+                                if constant == "CLICK_ADD_TRAIN_SPEED_MAX_RATE" then
+                                    return 512
+                                end
+                                return oldGet(constant)
+                            end
+                            print("✅ Config constants overridden!")
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    
+    bypassActive = true
+    print("✅ BYPASS ACTIVATED! SPEED: X6")
+end
+
+-- ========== AUTO UNEQUIP (MUTLAK) ==========
+local autoUnequipConnected = false
+local function setupAutoUnequip()
+    if autoUnequipConnected then return end
+    pcall(function()
+        local char = player.Character or player.CharacterAdded:Wait()
+        local humanoid = char:WaitForChild("Humanoid")
+        humanoid:GetPropertyChangedSignal("MoveDirection"):Connect(function()
+            if humanoid.MoveDirection.Magnitude > 0.1 then
+                unequipTrain()
+            end
+        end)
+        autoUnequipConnected = true
+    end)
+end
+
+-- ========== MEMORY CLEAN (MUTLAK) ==========
+local function quickMemoryClean()
+    pcall(function()
+        collectgarbage("collect")
+        collectgarbage("step")
+    end)
+end
+
+-- ========== VARIABLES (MUTLAK) ==========
+local isRunning = false
+local loopConnection = nil
+local currentSpeed = 512
+local frameCount = 0
+local autoUnequipEnabled = true
+
+-- ========== LOOP (MUTLAK) ==========
+local function startLoop()
+    if isRunning then return end
+    isRunning = true
+    
+    if autoUnequipEnabled then
+        setupAutoUnequip()
+    end
+    
+    loopConnection = runService.Heartbeat:Connect(function()
+        if isRunning then
+            frameCount = frameCount + 2
+            for i = 2, 25 do
+                cachedClick()
+            end
+            cachedUpdateSpeed(currentSpeed)
+            if frameCount % 100 == 0 then
+                quickMemoryClean()
+            end
+        end
+    end)
+    print("🔥 LOOP AKTIF! CLICK: 25x/frame | SPEED: X" .. tostring(currentSpeed))
+end
+
+local function stopLoop()
+    isRunning = false
+    if loopConnection then
+        loopConnection:Disconnect()
+        loopConnection = nil
+    end
+    unequipTrain()
+    print("⏹ LOOP STOP")
+end
+
+-- ========== ANTI-LAG SYSTEM ==========
+local antiLagActive = false
+local function toggleAntiLag(state)
+    antiLagActive = state
+    pcall(function()
+        local lighting = game:GetService("Lighting")
+        if state then
+            lighting.GlobalShadows = false
+            lighting.FogEnd = 9e9
+            settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        else
+            lighting.GlobalShadows = true
+            lighting.FogEnd = 1000
+            settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
+        end
+
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if state then
+                if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
+                    obj.Enabled = false
+                elseif obj:IsA("PostEffect") or obj:IsA("BloomEffect") or obj:IsA("BlurEffect") or obj:IsA("ColorCorrectionEffect") or obj:IsA("SunRaysEffect") then
+                    obj.Enabled = false
+                elseif obj:IsA("BasePart") and not obj.Parent:FindFirstChildOfClass("Humanoid") then
+                    if obj:IsA("MeshPart") or obj:IsA("UnionOperation") then
+                        obj.Material = Enum.Material.SmoothPlastic
+                    end
+                    obj.CastShadow = false
+                end
+            else
+                if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Fire") or obj:IsA("Sparkles") then
+                    obj.Enabled = true
+                elseif obj:IsA("PostEffect") or obj:IsA("BloomEffect") or obj:IsA("BlurEffect") or obj:IsA("ColorCorrectionEffect") or obj:IsA("SunRaysEffect") then
+                    obj.Enabled = true
+                elseif obj:IsA("BasePart") then
+                    obj.CastShadow = true
+                end
+            end
+        end
+    end)
+    print("Anti-Lag State: " .. tostring(state))
+end
+
+
+-- ==================== NEW COMPACT MINI-SPLIT GUI ====================
+local gui = Instance.new("ScreenGui")
+gui.Name = "LilyVL_Pro_Mini"
+gui.Parent = player:WaitForChild("PlayerGui")
+gui.ResetOnSpawn = false
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Main Container Frame (Kecil & Ringkas: 320 x 230)
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 320, 0, 230)
+mainFrame.Position = UDim2.new(0.5, -160, 0.5, -115)
+mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = gui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 6)
+mainCorner.Parent = mainFrame
+
+-- Red Border
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Thickness = 1.2
+mainStroke.Color = Color3.fromRGB(180, 20, 20)
+mainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+mainStroke.Parent = mainFrame
+
+-- Title Bar (Compact)
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 28)
+titleBar.BackgroundColor3 = Color3.fromRGB(14, 14, 14)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleText = Instance.new("TextLabel")
+titleText.Size = UDim2.new(0.6, 0, 1, 0)
+titleText.Position = UDim2.new(0.04, 0, 0, 0)
+titleText.Text = "LILYVL MINI"
+titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleText.BackgroundTransparency = 1
+titleText.Font = Enum.Font.GothamBold
+titleText.TextSize = 10
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Parent = titleBar
+
+-- Control Buttons
+local windowControls = Instance.new("Frame")
+windowControls.Size = UDim2.new(0.35, 0, 1, 0)
+windowControls.Position = UDim2.new(0.65, -6, 0, 0)
+windowControls.BackgroundTransparency = 1
+windowControls.Parent = titleBar
+
+local windowLayout = Instance.new("UIListLayout")
+windowLayout.FillDirection = Enum.FillDirection.Horizontal
+windowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+windowLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+windowLayout.Padding = UDim.new(0, 4)
+windowLayout.Parent = windowControls
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 18, 0, 18)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+closeBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+closeBtn.BorderSizePixel = 0
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 9
+closeBtn.Parent = windowControls
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 3)
+closeCorner.Parent = closeBtn
+
+local minimizeBtn = Instance.new("TextButton")
+minimizeBtn.Size = UDim2.new(0, 18, 0, 18)
+minimizeBtn.Text = "—"
+minimizeBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+minimizeBtn.BorderSizePixel = 0
+minimizeBtn.Font = Enum.Font.GothamBold
+minimizeBtn.TextSize = 9
+minimizeBtn.Parent = windowControls
+
+local minCorner = Instance.new("UICorner")
+minCorner.CornerRadius = UDim.new(0, 3)
+minCorner.Parent = minimizeBtn
+
+
+-- ==================== MINI SPLIT WINDOW SYSTEM ====================
+local contentContainer = Instance.new("Frame")
+contentContainer.Size = UDim2.new(1, 0, 1, -28)
+contentContainer.Position = UDim2.new(0, 0, 0, 28)
+contentContainer.BackgroundTransparency = 1
+contentContainer.Parent = mainFrame
+
+-- LEFT PANEL (Nav Ramping: Lebar 25%)
+local leftPanel = Instance.new("Frame")
+leftPanel.Size = UDim2.new(0.25, 0, 1, 0)
+leftPanel.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+leftPanel.BorderSizePixel = 0
+leftPanel.Parent = contentContainer
+
+local leftSeparator = Instance.new("Frame")
+leftSeparator.Size = UDim2.new(0, 1, 1, 0)
+leftSeparator.Position = UDim2.new(1, -1, 0, 0)
+leftSeparator.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+leftSeparator.BorderSizePixel = 0
+leftSeparator.Parent = leftPanel
+
+local navLayout = Instance.new("UIListLayout")
+navLayout.Padding = UDim.new(0, 4)
+navLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+navLayout.SortOrder = Enum.SortOrder.LayoutOrder
+navLayout.Parent = leftPanel
+
+local navPadding = Instance.new("UIPadding")
+navPadding.PaddingTop = UDim.new(0, 8)
+navPadding.Parent = leftPanel
+
+-- RIGHT PANEL (Content Canvas Area: Lebar 75%)
+local rightPanel = Instance.new("Frame")
+rightPanel.Size = UDim2.new(0.75, -1, 1, 0)
+rightPanel.Position = UDim2.new(0.25, 0, 0, 0)
+rightPanel.BackgroundTransparency = 1
+rightPanel.Parent = contentContainer
+
+
+-- ==================== TABS CONTAINER ====================
+local mainTabFrame = Instance.new("ScrollingFrame")
+mainTabFrame.Size = UDim2.new(1, 0, 1, 0)
+mainTabFrame.BackgroundTransparency = 1
+mainTabFrame.BorderSizePixel = 0
+mainTabFrame.ScrollBarThickness = 1
+mainTabFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+mainTabFrame.Parent = rightPanel
+
+local mainTabLayout = Instance.new("UIListLayout")
+mainTabLayout.Padding = UDim.new(0, 6)
+mainTabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+mainTabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+mainTabLayout.Parent = mainTabFrame
+
+local mainPadding = Instance.new("UIPadding")
+mainPadding.PaddingTop = UDim.new(0, 6)
+mainPadding.PaddingBottom = UDim.new(0, 6)
+mainPadding.Parent = mainTabFrame
+
+local antilagTabFrame = Instance.new("ScrollingFrame")
+antilagTabFrame.Size = UDim2.new(1, 0, 1, 0)
+antilagTabFrame.BackgroundTransparency = 1
+antilagTabFrame.BorderSizePixel = 0
+antilagTabFrame.ScrollBarThickness = 1
+antilagTabFrame.Visible = false
+antilagTabFrame.Parent = rightPanel
+
+local antilagLayout = Instance.new("UIListLayout")
+antilagLayout.Padding = UDim.new(0, 6)
+antilagLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+antilagLayout.SortOrder = Enum.SortOrder.LayoutOrder
+antilagLayout.Parent = antilagTabFrame
+
+local antilagPadding = Instance.new("UIPadding")
+antilagPadding.PaddingTop = UDim.new(0, 6)
+antilagPadding.PaddingBottom = UDim.new(0, 6)
+antilagPadding.Parent = antilagTabFrame
+
+
+-- ==================== HELPER CREATOR ====================
+local function createButton(text, bg, parent, layoutOrder, height)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.92, 0, 0, height or 24)
+    btn.BackgroundColor3 = bg
+    btn.BorderSizePixel = 0
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(230, 230, 230)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 9
+    btn.LayoutOrder = layoutOrder
+    btn.Parent = parent
+    
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 3)
+    c.Parent = btn
+    
+    btn.MouseEnter:Connect(function()
+        tweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = bg:Lerp(Color3.fromRGB(255, 255, 255), 0.1)}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        tweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = bg}):Play()
+    end)
+    
+    return btn
+end
+
+
+-- ==================== TAB NAVIGATION (COMPACT) ====================
+local mainTabNav = createButton("MAIN", Color3.fromRGB(180, 20, 20), leftPanel, 1, 26)
+local antilagTabNav = createButton("LAG", Color3.fromRGB(20, 20, 20), leftPanel, 2, 26)
+
+
+-- ==================== TAB 1: MAIN MENU ====================
+-- Status Bar
+local statusPanel = Instance.new("Frame")
+statusPanel.Size = UDim2.new(0.92, 0, 0, 26)
+statusPanel.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+statusPanel.BorderSizePixel = 0
+statusPanel.LayoutOrder = 1
+statusPanel.Parent = mainTabFrame
+
+local spCorner = Instance.new("UICorner")
+spCorner.CornerRadius = UDim.new(0, 4)
+spCorner.Parent = statusPanel
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(0.5, 0, 1, 0)
+statusLabel.Position = UDim2.new(0.05, 0, 0, 0)
+statusLabel.Text = "⚡ OFF"
+statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextSize = 9
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.Parent = statusPanel
+
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(0.45, 0, 1, 0)
+speedLabel.Position = UDim2.new(0.5, 0, 0, 0)
+speedLabel.Text = "🔥 SPEED: X6"
+speedLabel.TextColor3 = Color3.fromRGB(180, 20, 20)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Font = Enum.Font.GothamBold
+speedLabel.TextSize = 9
+speedLabel.TextXAlignment = Enum.TextXAlignment.Right
+speedLabel.Parent = statusPanel
+
+-- START Button
+local startBtn = createButton("▶ START", Color3.fromRGB(140, 20, 20), mainTabFrame, 2, 28)
+
+-- Bypass, Unequip Row
+local row1 = Instance.new("Frame")
+row1.Size = UDim2.new(0.92, 0, 0, 24)
+row1.BackgroundTransparency = 1
+row1.LayoutOrder = 3
+row1.Parent = mainTabFrame
+
+local row1Layout = Instance.new("UIListLayout")
+row1Layout.FillDirection = Enum.FillDirection.Horizontal
+row1Layout.Padding = UDim.new(0, 4)
+row1Layout.Parent = row1
+
+local bypassBtn = createButton("💀 BYPASS", Color3.fromRGB(20, 20, 20), row1, 1, 24)
+bypassBtn.Size = UDim2.new(0.5, -2, 1, 0)
+
+local unequipBtn = createButton("⏹ UNEQ", Color3.fromRGB(20, 20, 20), row1, 2, 24)
+unequipBtn.Size = UDim2.new(0.5, -2, 1, 0)
+
+-- Equip Grid Row (Very Compact)
+local row2 = Instance.new("Frame")
+row2.Size = UDim2.new(0.92, 0, 0, 22)
+row2.BackgroundTransparency = 1
+row2.LayoutOrder = 4
+row2.Parent = mainTabFrame
+
+local row2Layout = Instance.new("UIListLayout")
+row2Layout.FillDirection = Enum.FillDirection.Horizontal
+row2Layout.Padding = UDim.new(0, 3)
+row2Layout.Parent = row2
+
+local equipBtns = {}
+local equipIds = {5, 6, 7, 8}
+for i, id in pairs(equipIds) do
+    local eqBtn = createButton(tostring(id), Color3.fromRGB(15, 15, 15), row2, i, 22)
+    eqBtn.Size = UDim2.new(0.25, -2, 1, 0)
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 0.8
+    stroke.Color = Color3.fromRGB(30, 30, 30)
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = eqBtn
+    
+    equipBtns[id] = {btn = eqBtn, stroke = stroke}
+end
+
+-- Refresh, Memory Row
+local row3 = Instance.new("Frame")
+row3.Size = UDim2.new(0.92, 0, 0, 24)
+row3.BackgroundTransparency = 1
+row3.LayoutOrder = 5
+row3.Parent = mainTabFrame
+
+local row3Layout = Instance.new("UIListLayout")
+row3Layout.FillDirection = Enum.FillDirection.Horizontal
+row3Layout.Padding = UDim.new(0, 4)
+row3Layout.Parent = row3
+
+local refreshBtn = createButton("🔄 REFRESH", Color3.fromRGB(20, 20, 20), row3, 1, 24)
+refreshBtn.Size = UDim2.new(0.5, -2, 1, 0)
+
+local memBtn = createButton("🧹 MEMORY", Color3.fromRGB(20, 20, 20), row3, 2, 24)
+memBtn.Size = UDim2.new(0.5, -2, 1, 0)
+
+-- Auto Unequip Button
+local autoUnequipBtn = createButton("🔓 AUTO UNEQUIP ON", Color3.fromRGB(140, 20, 20), mainTabFrame, 6, 24)
+
+-- Rejoin, Leave Row
+local row4 = Instance.new("Frame")
+row4.Size = UDim2.new(0.92, 0, 0, 24)
+row4.BackgroundTransparency = 1
+row4.LayoutOrder = 7
+row4.Parent = mainTabFrame
+
+local row4Layout = Instance.new("UIListLayout")
+row4Layout.FillDirection = Enum.FillDirection.Horizontal
+row4Layout.Padding = UDim.new(0, 4)
+row4Layout.Parent = row4
+
+local rejoinBtn = createButton("🔄 REJOIN", Color3.fromRGB(20, 20, 20), row4, 1, 24)
+rejoinBtn.Size = UDim2.new(0.5, -2, 1, 0)
+
+local leaveBtn = createButton("🚪 LEAVE", Color3.fromRGB(20, 20, 20), row4, 2, 24)
+leaveBtn.Size = UDim2.new(0.5, -2, 1, 0)
+
+
+-- ==================== TAB 2: ANTI-LAG MENU ====================
+local statusPanelAntiLag = Instance.new("Frame")
+statusPanelAntiLag.Size = UDim2.new(0.92, 0, 0, 26)
+statusPanelAntiLag.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+statusPanelAntiLag.BorderSizePixel = 0
+statusPanelAntiLag.LayoutOrder = 1
+statusPanelAntiLag.Parent = antilagTabFrame
+
+local spAntiLagCorner = Instance.new("UICorner")
+spAntiLagCorner.CornerRadius = UDim.new(0, 4)
+spAntiLagCorner.Parent = statusPanelAntiLag
+
+local antiLagStatusLabel = Instance.new("TextLabel")
+antiLagStatusLabel.Size = UDim2.new(1, 0, 1, 0)
+antiLagStatusLabel.Position = UDim2.new(0.05, 0, 0, 0)
+antiLagStatusLabel.Text = "🛡️ STATUS: INACTIVE"
+antiLagStatusLabel.TextColor3 = Color3.fromRGB(250, 50, 50)
+antiLagStatusLabel.BackgroundTransparency = 1
+antiLagStatusLabel.Font = Enum.Font.GothamBold
+antiLagStatusLabel.TextSize = 9
+antiLagStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+antiLagStatusLabel.Parent = statusPanelAntiLag
+
+-- Boost & Clean Buttons (Ramping)
+local fpsBoostBtn = createButton("🚀 ACTIVATE FPS BOOST", Color3.fromRGB(20, 20, 20), antilagTabFrame, 2, 28)
+local clearGfxBtn = createButton("⚡ CLEAR VFX / PARTICLES", Color3.fromRGB(20, 20, 20), antilagTabFrame, 3, 28)
+local clearTexturesBtn = createButton("🧱 SIMPLIFY TEXTURES", Color3.fromRGB(20, 20, 20), antilagTabFrame, 4, 28)
+
+
+-- Footer Info (Nav)
+local verLabel = Instance.new("TextLabel")
+verLabel.Size = UDim2.new(0.9, 0, 0, 15)
+verLabel.Position = UDim2.new(0.05, 0, 1, -18)
+verLabel.Text = "LILYVL PRO v2"
+verLabel.TextColor3 = Color3.fromRGB(80, 80, 80)
+verLabel.BackgroundTransparency = 1
+verLabel.Font = Enum.Font.GothamBold
+verLabel.TextSize = 7
+verLabel.TextXAlignment = Enum.TextXAlignment.Center
+verLabel.Parent = leftPanel
+
+
+-- ==================== TAB NAVIGATION LOGIC ====================
+mainTabNav.MouseButton1Click:Connect(function()
+    mainTabFrame.Visible = true
+    antilagTabFrame.Visible = false
+    mainTabNav.BackgroundColor3 = Color3.fromRGB(180, 20, 20)
+    antilagTabNav.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+end)
+
+antilagTabNav.MouseButton1Click:Connect(function()
+    mainTabFrame.Visible = false
+    antilagTabFrame.Visible = true
+    antilagTabNav.BackgroundColor3 = Color3.fromRGB(180, 20, 20)
+    mainTabNav.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+end)
+
+
+-- ==================== INTERACTION ACTIONS (MUTLAK) ====================
+local active = false
+
+startBtn.MouseButton1Click:Connect(function()
+    active = not active
+    if active then
+        startLoop()
+        startBtn.Text = "⏹ STOP"
+        startBtn.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+        statusLabel.Text = "⚡ ON"
+        statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    else
+        stopLoop()
+        startBtn.Text = "▶ START"
+        startBtn.BackgroundColor3 = Color3.fromRGB(140, 20, 20)
+        statusLabel.Text = "⚡ OFF"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+    end
+end)
+
+bypassBtn.MouseButton1Click:Connect(function()
+    if not bypassActive then
+        doBypass()
+        bypassBtn.Text = "💀 ON"
+        bypassBtn.BackgroundColor3 = Color3.fromRGB(140, 20, 20)
+        speedLabel.Text = "🔥 SPEED: X6"
+    else
+        bypassActive = false
+        bypassBtn.Text = "💀 BYPASS"
+        bypassBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        speedLabel.Text = "🔥 SPEED: X6"
+    end
+end)
+
+unequipBtn.MouseButton1Click:Connect(function()
+    unequipTrain()
+    statusLabel.Text = "⚡ UNEQ"
+    statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+    task.wait(0.3)
+    if active then
+        statusLabel.Text = "⚡ ON"
+        statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    else
+        statusLabel.Text = "⚡ OFF"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+    end
+end)
+
+for id, item in pairs(equipBtns) do
+    item.btn.MouseButton1Click:Connect(function()
+        cachedEquip(id)
+        for _, other in pairs(equipBtns) do
+            other.stroke.Color = Color3.fromRGB(30, 30, 30)
+            other.btn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        end
+        item.stroke.Color = Color3.fromRGB(180, 20, 20)
+        item.btn.BackgroundColor3 = Color3.fromRGB(35, 15, 15)
+    end)
+end
+
+refreshBtn.MouseButton1Click:Connect(function()
+    statusLabel.Text = "⚡ OK"
+    statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    task.wait(0.3)
+    if active then
+        statusLabel.Text = "⚡ ON"
+        statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    else
+        statusLabel.Text = "⚡ OFF"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+    end
+end)
+
+memBtn.MouseButton1Click:Connect(function()
+    statusLabel.Text = "⚡ MEM"
+    statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+    quickMemoryClean()
+    statusLabel.Text = "⚡ DONE"
+    statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    task.wait(0.3)
+    if active then
+        statusLabel.Text = "⚡ ON"
+        statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    else
+        statusLabel.Text = "⚡ OFF"
+        statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+    end
+end)
+
+autoUnequipBtn.MouseButton1Click:Connect(function()
+    autoUnequipEnabled = not autoUnequipEnabled
+    if autoUnequipEnabled then
+        autoUnequipBtn.Text = "🔓 AUTO UNEQUIP ON"
+        autoUnequipBtn.BackgroundColor3 = Color3.fromRGB(140, 20, 20)
+        setupAutoUnequip()
+    else
+        autoUnequipBtn.Text = "🔒 AUTO UNEQUIP OFF"
+        autoUnequipBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        autoUnequipConnected = false
+    end
+end)
+
+leaveBtn.MouseButton1Click:Connect(function()
+    stopLoop()
+    task.wait(0.3)
+    player:Kick("Leave")
+end)
+
+rejoinBtn.MouseButton1Click:Connect(function()
+    stopLoop()
+    task.wait(0.3)
+    game:GetService("TeleportService"):Teleport(game.PlaceId, player)
+end)
+
+
+-- ==================== ANTI-LAG ACTIONS ====================
+local fpsBoostActive = false
+fpsBoostBtn.MouseButton1Click:Connect(function()
+    fpsBoostActive = not fpsBoostActive
+    toggleAntiLag(fpsBoostActive)
+    
+    if fpsBoostActive then
+        fpsBoostBtn.Text = "🚀 FPS BOOST: ACTIVE"
+        fpsBoostBtn.BackgroundColor3 = Color3.fromRGB(140, 20, 20)
+        antiLagStatusLabel.Text = "🛡️ STATUS: BOOSTED!"
+        antiLagStatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    else
+        fpsBoostBtn.Text = "🚀 ACTIVATE FPS BOOST"
+        fpsBoostBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        antiLagStatusLabel.Text = "🛡️ STATUS: INACTIVE"
+        antiLagStatusLabel.TextColor3 = Color3.fromRGB(250, 50, 50)
+    end
+end)
+
+clearGfxBtn.MouseButton1Click:Connect(function()
+    clearGfxBtn.Text = "🧹 CLEANING VFX..."
+    clearGfxBtn.BackgroundColor3 = Color3.fromRGB(140, 20, 20)
+    pcall(function()
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
+                obj:Destroy()
+            end
+        end
+    end)
+    task.wait(0.5)
+    clearGfxBtn.Text = "✅ VFX CLEARED"
+    clearGfxBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+end)
+
+clearTexturesBtn.MouseButton1Click:Connect(function()
+    clearTexturesBtn.Text = "🧱 SIMPLIFYING..."
+    clearTexturesBtn.BackgroundColor3 = Color3.fromRGB(140, 20, 20)
+    pcall(function()
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("Texture") or obj:IsA("Decal") then
+                obj:Destroy()
+            elseif obj:IsA("BasePart") then
+                obj.Material = Enum.Material.SmoothPlastic
+            end
+        end
+    end)
+    task.wait(0.5)
+    clearTexturesBtn.Text = "✅ SIMPLIFIED"
+    clearTexturesBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+end)
+
+
+-- ========== LERP SMOOTH DRAG SYSTEM ==========
+local dragToggle = false
+local dragStart, startPos, dragInput
+
+titleBar.InputBegan:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+        dragToggle = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        
+        input.Changed:Connect(function()
+            if (input.UserInputState == Enum.UserInputState.End) then
+                dragToggle = false
+            end
+        end)
+    end
+end)
+
+titleBar.InputChanged:Connect(function(input)
+    if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        dragInput = input
+    end
+end)
+
+runService.Heartbeat:Connect(function()
+    if dragToggle and dragInput then
+        local delta = dragInput.Position - dragStart
+        local targetPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        mainFrame.Position = mainFrame.Position:Lerp(targetPos, 0.25)
+    end
+end)
+
+
+-- ========== MINIMIZE & CLOSE LOGIC ==========
+local isMinimized = false
+
+minimizeBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    if isMinimized then
+        tweenService:Create(mainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 320, 0, 28)}):Play()
+        contentContainer.Visible = false
+        minimizeBtn.Text = "+"
+    else
+        tweenService:Create(mainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 320, 0, 230)}):Play()
+        task.wait(0.1)
+        contentContainer.Visible = true
+        minimizeBtn.Text = "—"
+    end
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    stopLoop()
+    gui:Destroy()
+end)
